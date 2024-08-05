@@ -18,7 +18,7 @@ jobs:
           username: ${{ secrets.DOCKER_USERNAME }}
           password: ${{ secrets.DOCKER_PASSWORD }}
       - name: Build images
-        run: docker build -t $PHP_IMAGE .
+        run: docker build -t $PHP_IMAGE -f ./8.2-alpine/Dockerfile .
       - name: Install dependencies
         run: docker run --rm -t $API_IMAGE composer install --prefer-dist --no-progress --no-interaction
       - name: Push images

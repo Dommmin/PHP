@@ -1,5 +1,5 @@
 # Stage 1: Build the API image
-FROM php:8.2-fpm-alpine as api
+FROM php:8.2-fpm-alpine
 
 # Set working directory
 WORKDIR /usr/src
