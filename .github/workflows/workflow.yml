@@ -3,7 +3,7 @@ name: Build images
 on:
   push:
     branches:
-      - develop
+      - main
 
 env:
   PHP_IMAGE: dommin/php-8.2:latest
