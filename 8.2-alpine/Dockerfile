@@ -48,12 +48,6 @@ RUN docker-php-ext-enable imagick
 # Install Composer
 COPY --from=composer:latest /usr/bin/composer /usr/bin/composer
 
-# Copy application files
-COPY ./api ./
-
-# Install application dependencies
-RUN composer install --prefer-dist --no-scripts --no-progress --no-suggest --optimize-autoloader
-
 RUN chown -R www-data:www-data /usr/src && \
     chmod -R 775 ./storage ./bootstrap/cache
 
