@@ -13,7 +13,7 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
     && apt-get clean && rm -rf /var/lib/apt/lists/* /tmp/* /var/tmp/*
 
 RUN curl -fsSL https://deb.nodesource.com/setup_22.x | bash - \
-    && apt-get update && apt-get install -y nodejs \
+    && apt-get install -y nodejs \
     && npm install -g npm@latest \
     && apt-get clean && rm -rf /var/lib/apt/lists/* /tmp/* /var/tmp/*
 
@@ -27,17 +27,12 @@ RUN pecl install redis imagick \
 
 COPY --from=composer:latest /usr/bin/composer /usr/bin/composer
 
-RUN groupmod -g ${GROUP_ID} www-data && \
-    usermod -u ${USER_ID} -g www-data www-data && \
-    mkdir -p /var/www && \
-    chown -R www-data:www-data /var/www
+RUN groupmod -g ${GROUP_ID} www-data \
+    && usermod -u ${USER_ID} -g www-data www-data \
+    && mkdir -p /var/www \
+    && chown -R www-data:www-data /var/www
 
 WORKDIR /var/www
-
-USER www-data
-
-RUN mkdir -p /tmp/sessions && \
-    chmod 777 /tmp/sessions
 
 EXPOSE 9000
 
