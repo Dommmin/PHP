@@ -4,8 +4,9 @@ on:
   push:
     branches: [main]
     paths:
-      - 'docker/php/**'
-      - '.github/workflows/docker-php.yml'
+      - '8.4-fpm/Dockerfile'
+      - '8.4-fpm-alpine/Dockerfile'
+      - '.github/workflows/docker-build.yml'
   workflow_dispatch:
 
 jobs:
@@ -20,9 +21,15 @@ jobs:
         with:
           fetch-depth: 0
 
-      - name: Get current date
-        id: date
-        run: echo "date=$(date +'%Y.%m.%d')" >> $GITHUB_OUTPUT
+      - name: Get version tag
+        id: version
+        run: |
+          # Pobierz obecną datę
+          DATE=$(date +'%Y.%m.%d')
+          # Pobierz krótki hash commita
+          COMMIT_SHORT=$(git rev-parse --short HEAD)
+          echo "tag=${DATE}-${COMMIT_SHORT}" >> $GITHUB_OUTPUT
+          echo "date=${DATE}" >> $GITHUB_OUTPUT
 
       - name: Set up Docker Buildx
         uses: docker/setup-buildx-action@v3
@@ -36,11 +43,14 @@ jobs:
       - name: Build and push
         uses: docker/build-push-action@v5
         with:
-          context: docker/php/${{ matrix.variant }}
-          file: docker/php/${{ matrix.variant }}/Dockerfile
+          context: .
+          file: ${{ matrix.variant }}/Dockerfile
           push: true
           tags: |
             dommin/php-${{ matrix.variant }}:latest
-            dommin/php-${{ matrix.variant }}:${{ steps.date.outputs.date }}
+            dommin/php-${{ matrix.variant }}:${{ steps.version.outputs.date }}
+            dommin/php-${{ matrix.variant }}:${{ steps.version.outputs.tag }}
+          labels: |
+            org.opencontainers.image.source=${{ github.repositoryUrl }}
           cache-from: type=gha
           cache-to: type=gha,mode=max
