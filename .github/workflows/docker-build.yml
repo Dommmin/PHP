@@ -8,13 +8,62 @@ on:
       - '8.4-fpm-alpine/Dockerfile'
       - '.github/workflows/docker-build.yml'
   workflow_dispatch:
+    inputs:
+      variant:
+        description: 'Specific variant to build (leave empty for changed only)'
+        required: false
+        type: string
 
 jobs:
+  detect-changes:
+    runs-on: ubuntu-latest
+    outputs:
+      changed-variants: ${{ steps.filter.outputs.changes }}
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Detect file changes
+        id: filter
+        run: |
+          if [ "${{ github.event_name }}" == "workflow_dispatch" ] && [ -n "${{ github.event.inputs.variant }}" ]; then
+            # If workflow was manually triggered with specified variant
+            echo "changes=${{ github.event.inputs.variant }}" >> $GITHUB_OUTPUT
+          else
+            # Check which Dockerfiles were changed in this push
+            CHANGED_FILES=$(git diff --name-only ${{ github.event.before }} ${{ github.sha }} || git diff --name-only HEAD~1 HEAD)
+            
+            VARIANTS=""
+            if echo "$CHANGED_FILES" | grep -q "8.4-fpm/Dockerfile"; then
+              VARIANTS="8.4-fpm"
+            fi
+            
+            if echo "$CHANGED_FILES" | grep -q "8.4-fpm-alpine/Dockerfile"; then
+              if [ -n "$VARIANTS" ]; then
+                VARIANTS="$VARIANTS,8.4-fpm-alpine"
+              else
+                VARIANTS="8.4-fpm-alpine"
+              fi
+            fi
+            
+            # If workflow file was changed but no Dockerfiles, don't build anything
+            if [ -z "$VARIANTS" ] && echo "$CHANGED_FILES" | grep -q ".github/workflows/docker-build.yml"; then
+              VARIANTS=""
+            fi
+            
+            echo "changes=$VARIANTS" >> $GITHUB_OUTPUT
+          fi
+
   build:
+    needs: detect-changes
+    if: needs.detect-changes.outputs.changed-variants != ''
     runs-on: ubuntu-latest
     strategy:
       matrix:
-        variant: ["8.4-fpm", "8.4-fpm-alpine"]
+        variant: ${{ fromJson(format('[{0}]', needs.detect-changes.outputs.changed-variants)) }}
+      fail-fast: false
     steps:
       - name: Checkout code
         uses: actions/checkout@v4
@@ -24,9 +73,9 @@ jobs:
       - name: Get version tag
         id: version
         run: |
-          # Pobierz obecną datę
+          # Get the current date
           DATE=$(date +'%Y.%m.%d')
-          # Pobierz krótki hash commita
+          # Get the short commit hash
           COMMIT_SHORT=$(git rev-parse --short HEAD)
           echo "tag=${DATE}-${COMMIT_SHORT}" >> $GITHUB_OUTPUT
           echo "date=${DATE}" >> $GITHUB_OUTPUT
@@ -46,6 +95,9 @@ jobs:
           context: .
           file: ${{ matrix.variant }}/Dockerfile
           push: true
+          build-args: |
+            USER_ID=1000
+            GROUP_ID=1000
           tags: |
             dommin/php-${{ matrix.variant }}:latest
             dommin/php-${{ matrix.variant }}:${{ steps.version.outputs.date }}
