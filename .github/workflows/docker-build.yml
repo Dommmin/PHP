@@ -10,15 +10,40 @@ on:
   workflow_dispatch:
     inputs:
       variant:
-        description: 'Specific variant to build (leave empty for changed only)'
+        description: 'Specific variant to build (all, 8.4-fpm, 8.4-fpm-alpine)'
         required: false
-        type: string
+        default: 'all'
+        type: choice
+        options:
+          - all
+          - 8.4-fpm
+          - 8.4-fpm-alpine
 
 jobs:
+  check-workflow-changes:
+    runs-on: ubuntu-latest
+    outputs:
+      workflow-changed: ${{ steps.check.outputs.changed }}
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      
+      - name: Check workflow changes
+        id: check
+        run: |
+          CHANGED_FILES=$(git diff --name-only ${{ github.event.before }} ${{ github.sha }} || git diff --name-only HEAD~1 HEAD)
+          if echo "$CHANGED_FILES" | grep -q ".github/workflows/docker-build.yml"; then
+            echo "changed=true" >> $GITHUB_OUTPUT
+          else
+            echo "changed=false" >> $GITHUB_OUTPUT
+          fi
+
   detect-changes:
     runs-on: ubuntu-latest
     outputs:
-      changed-variants: ${{ steps.filter.outputs.changes }}
+      matrix: ${{ steps.filter.outputs.matrix }}
     steps:
       - name: Checkout code
         uses: actions/checkout@v4
@@ -28,41 +53,44 @@ jobs:
       - name: Detect file changes
         id: filter
         run: |
-          if [ "${{ github.event_name }}" == "workflow_dispatch" ] && [ -n "${{ github.event.inputs.variant }}" ]; then
-            # If workflow was manually triggered with specified variant
-            echo "changes=${{ github.event.inputs.variant }}" >> $GITHUB_OUTPUT
-          else
-            # Check which Dockerfiles were changed in this push
-            CHANGED_FILES=$(git diff --name-only ${{ github.event.before }} ${{ github.sha }} || git diff --name-only HEAD~1 HEAD)
-            
-            VARIANTS=""
-            if echo "$CHANGED_FILES" | grep -q "8.4-fpm/Dockerfile"; then
-              VARIANTS="8.4-fpm"
+          # If workflow was manually triggered with specified variant
+          if [ "${{ github.event_name }}" == "workflow_dispatch" ]; then
+            if [ "${{ github.event.inputs.variant }}" == "all" ]; then
+              # Build all images
+              echo "matrix={\"variant\":[\"8.4-fpm\",\"8.4-fpm-alpine\"]}" >> $GITHUB_OUTPUT
+            else
+              # Build only specified variant
+              echo "matrix={\"variant\":[\"${{ github.event.inputs.variant }}\"]}" >> $GITHUB_OUTPUT
             fi
-            
-            if echo "$CHANGED_FILES" | grep -q "8.4-fpm-alpine/Dockerfile"; then
-              if [ -n "$VARIANTS" ]; then
-                VARIANTS="$VARIANTS,8.4-fpm-alpine"
-              else
-                VARIANTS="8.4-fpm-alpine"
-              fi
-            fi
-            
-            # If workflow file was changed but no Dockerfiles, don't build anything
-            if [ -z "$VARIANTS" ] && echo "$CHANGED_FILES" | grep -q ".github/workflows/docker-build.yml"; then
-              VARIANTS=""
-            fi
-            
-            echo "changes=$VARIANTS" >> $GITHUB_OUTPUT
+            exit 0
           fi
+          
+          # Check which Dockerfiles were changed in this push
+          CHANGED_FILES=$(git diff --name-only ${{ github.event.before }} ${{ github.sha }} || git diff --name-only HEAD~1 HEAD)
+          
+          VARIANTS="[]"
+          if echo "$CHANGED_FILES" | grep -q "8.4-fpm/Dockerfile"; then
+            VARIANTS="[\"8.4-fpm\"]"
+          fi
+          
+          if echo "$CHANGED_FILES" | grep -q "8.4-fpm-alpine/Dockerfile"; then
+            if [ "$VARIANTS" == "[]" ]; then
+              VARIANTS="[\"8.4-fpm-alpine\"]"
+            else
+              VARIANTS="[\"8.4-fpm\",\"8.4-fpm-alpine\"]"
+            fi
+          fi
+          
+          echo "matrix={\"variant\":$VARIANTS}" >> $GITHUB_OUTPUT
 
   build:
-    needs: detect-changes
-    if: needs.detect-changes.outputs.changed-variants != ''
+    needs: [detect-changes, check-workflow-changes]
+    if: >
+      needs.detect-changes.outputs.matrix != '{"variant":[]}' || 
+      (needs.check-workflow-changes.outputs.workflow-changed == 'true' && github.event_name != 'workflow_dispatch')
     runs-on: ubuntu-latest
     strategy:
-      matrix:
-        variant: ${{ fromJson(format('[{0}]', needs.detect-changes.outputs.changed-variants)) }}
+      matrix: ${{ fromJson(needs.detect-changes.outputs.matrix) }}
       fail-fast: false
     steps:
       - name: Checkout code
