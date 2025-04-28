@@ -27,16 +27,13 @@ RUN apk add --no-cache --virtual .build-deps \
        gd opcache \
     && apk del .build-deps
 
-# Instalacja Composer
 COPY --from=composer:latest /usr/bin/composer /usr/bin/composer
 
-# Konfiguracja użytkownika i grup
 RUN addgroup -g ${GROUP_ID} www-data && \
     adduser -u ${USER_ID} -D -S -G www-data www-data && \
     mkdir -p /var/www && \
     chown -R www-data:www-data /var/www
 
-# Konfiguracja supervisor
 RUN mkdir -p /var/log/supervisor /var/run/supervisor \
     && chown -R www-data:www-data /var/log/supervisor /var/run/supervisor
 
