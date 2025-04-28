@@ -10,9 +10,8 @@ on:
   workflow_dispatch:
     inputs:
       variant:
-        description: 'Specific variant to build (all, 8.4-fpm, 8.4-fpm-alpine)'
-        required: false
-        default: 'all'
+        description: 'Select variant to build'
+        required: true
         type: choice
         options:
           - all
@@ -20,83 +19,89 @@ on:
           - 8.4-fpm-alpine
 
 jobs:
-  check-workflow-changes:
+  setup:
     runs-on: ubuntu-latest
     outputs:
-      workflow-changed: ${{ steps.check.outputs.changed }}
+      build-matrix: ${{ steps.set-matrix.outputs.matrix }}
     steps:
-      - name: Checkout code
-        uses: actions/checkout@v4
-        with:
-          fetch-depth: 0
-      
-      - name: Check workflow changes
-        id: check
-        run: |
-          CHANGED_FILES=$(git diff --name-only ${{ github.event.before }} ${{ github.sha }} || git diff --name-only HEAD~1 HEAD)
-          if echo "$CHANGED_FILES" | grep -q ".github/workflows/docker-build.yml"; then
-            echo "changed=true" >> $GITHUB_OUTPUT
-          else
-            echo "changed=false" >> $GITHUB_OUTPUT
-          fi
-
-  detect-changes:
-    runs-on: ubuntu-latest
-    outputs:
-      matrix: ${{ steps.filter.outputs.matrix }}
-    steps:
-      - name: Checkout code
+      - name: Checkout repository
         uses: actions/checkout@v4
         with:
           fetch-depth: 0
 
-      - name: Detect file changes
-        id: filter
+      - name: Set up build matrix
+        id: set-matrix
         run: |
-          # If workflow was manually triggered with specified variant
-          if [ "${{ github.event_name }}" == "workflow_dispatch" ]; then
-            if [ "${{ github.event.inputs.variant }}" == "all" ]; then
-              # Build all images
-              echo "matrix={\"variant\":[\"8.4-fpm\",\"8.4-fpm-alpine\"]}" >> $GITHUB_OUTPUT
+          # Default empty matrix with valid structure
+          DEFAULT_MATRIX='{"include":[]}'
+          
+          # Manual workflow dispatch with specific selection
+          if [[ "${{ github.event_name }}" == "workflow_dispatch" ]]; then
+            if [[ "${{ github.event.inputs.variant }}" == "all" ]]; then
+              echo "matrix={\"include\":[{\"variant\":\"8.4-fpm\"},{\"variant\":\"8.4-fpm-alpine\"}]}" >> $GITHUB_OUTPUT
+              exit 0
             else
-              # Build only specified variant
-              echo "matrix={\"variant\":[\"${{ github.event.inputs.variant }}\"]}" >> $GITHUB_OUTPUT
+              echo "matrix={\"include\":[{\"variant\":\"${{ github.event.inputs.variant }}\"}]}" >> $GITHUB_OUTPUT
+              exit 0
             fi
+          fi
+          
+          # Auto-trigger from push
+          CHANGED_FILES=""
+          if [[ -n "${{ github.event.before }}" && -n "${{ github.sha }}" ]]; then
+            CHANGED_FILES=$(git diff --name-only ${{ github.event.before }} ${{ github.sha }})
+          else
+            # Fallback if we can't get the exact commit range
+            CHANGED_FILES=$(git diff --name-only HEAD~1 HEAD)
+          fi
+          
+          # Check if workflow file was changed
+          WORKFLOW_CHANGED=false
+          if echo "$CHANGED_FILES" | grep -q ".github/workflows/docker-build.yml"; then
+            WORKFLOW_CHANGED=true
+          fi
+          
+          # Process changed Dockerfiles
+          MATRIX_ITEMS=""
+          
+          # Check for 8.4-fpm changes
+          if echo "$CHANGED_FILES" | grep -q "8.4-fpm/Dockerfile"; then
+            MATRIX_ITEMS="{\"variant\":\"8.4-fpm\"}"
+          fi
+          
+          # Check for 8.4-fpm-alpine changes
+          if echo "$CHANGED_FILES" | grep -q "8.4-fpm-alpine/Dockerfile"; then
+            if [[ -n "$MATRIX_ITEMS" ]]; then
+              MATRIX_ITEMS="$MATRIX_ITEMS,{\"variant\":\"8.4-fpm-alpine\"}"
+            else
+              MATRIX_ITEMS="{\"variant\":\"8.4-fpm-alpine\"}"
+            fi
+          fi
+          
+          # If workflow changed but no Dockerfiles changed, build all
+          if [[ "$WORKFLOW_CHANGED" == "true" && -z "$MATRIX_ITEMS" ]]; then
+            echo "matrix={\"include\":[{\"variant\":\"8.4-fpm\"},{\"variant\":\"8.4-fpm-alpine\"}]}" >> $GITHUB_OUTPUT
             exit 0
           fi
           
-          # Check which Dockerfiles were changed in this push
-          CHANGED_FILES=$(git diff --name-only ${{ github.event.before }} ${{ github.sha }} || git diff --name-only HEAD~1 HEAD)
-          
-          VARIANTS="[]"
-          if echo "$CHANGED_FILES" | grep -q "8.4-fpm/Dockerfile"; then
-            VARIANTS="[\"8.4-fpm\"]"
+          # If we have matrix items, create proper matrix
+          if [[ -n "$MATRIX_ITEMS" ]]; then
+            echo "matrix={\"include\":[$MATRIX_ITEMS]}" >> $GITHUB_OUTPUT
+          else
+            # Empty but valid matrix
+            echo "matrix=$DEFAULT_MATRIX" >> $GITHUB_OUTPUT
           fi
-          
-          if echo "$CHANGED_FILES" | grep -q "8.4-fpm-alpine/Dockerfile"; then
-            if [ "$VARIANTS" == "[]" ]; then
-              VARIANTS="[\"8.4-fpm-alpine\"]"
-            else
-              VARIANTS="[\"8.4-fpm\",\"8.4-fpm-alpine\"]"
-            fi
-          fi
-          
-          echo "matrix={\"variant\":$VARIANTS}" >> $GITHUB_OUTPUT
 
   build:
-    needs: [detect-changes, check-workflow-changes]
-    if: >
-      needs.detect-changes.outputs.matrix != '{"variant":[]}' || 
-      (needs.check-workflow-changes.outputs.workflow-changed == 'true' && github.event_name != 'workflow_dispatch')
+    needs: setup
+    if: ${{ fromJson(needs.setup.outputs.build-matrix).include[0] != null }}
     runs-on: ubuntu-latest
     strategy:
-      matrix: ${{ fromJson(needs.detect-changes.outputs.matrix) }}
+      matrix: ${{ fromJson(needs.setup.outputs.build-matrix) }}
       fail-fast: false
     steps:
       - name: Checkout code
         uses: actions/checkout@v4
-        with:
-          fetch-depth: 0
 
       - name: Get version tag
         id: version
@@ -133,4 +138,5 @@ jobs:
           labels: |
             org.opencontainers.image.source=${{ github.repositoryUrl }}
           cache-from: type=gha
+          cache-to: type=gha,mode=max
           cache-to: type=gha,mode=max
