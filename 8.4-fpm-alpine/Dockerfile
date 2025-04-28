@@ -9,8 +9,6 @@ RUN apk add --no-cache \
     nodejs npm \
     $PHPIZE_DEPS
 
-COPY --from=composer:latest /usr/bin/composer /usr/bin/composer
-
 RUN pecl install redis imagick \
     && docker-php-ext-enable redis imagick \
     && docker-php-ext-configure gd --with-freetype --with-jpeg --with-webp \
@@ -19,12 +17,6 @@ RUN pecl install redis imagick \
        zip bcmath pcntl intl \
        gd opcache
 
-RUN composer install --no-dev --no-interaction --prefer-dist --optimize-autoloader \
-    && npm ci \
-    && npm run build \
-    && rm -rf node_modules \
-    && composer dump-autoload -o
-
 RUN apk add --no-cache \
     libpng libjpeg libwebp freetype \
     oniguruma libxml2 libzip \
@@ -32,6 +24,10 @@ RUN apk add --no-cache \
     postgresql-libs \
     supervisor \
     bash
+
+COPY --from=composer:latest /usr/bin/composer /usr/bin/composer
+
+RUN rm -rf /tmp/* /var/cache/apk/*
 
 WORKDIR /var/www
 
