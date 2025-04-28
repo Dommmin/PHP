@@ -8,135 +8,106 @@ on:
       - '8.4-fpm-alpine/Dockerfile'
       - '.github/workflows/docker-build.yml'
   workflow_dispatch:
-    inputs:
-      variant:
-        description: 'Select variant to build'
-        required: true
-        type: choice
-        options:
-          - all
-          - 8.4-fpm
-          - 8.4-fpm-alpine
 
 jobs:
-  setup:
+  check_changes:
     runs-on: ubuntu-latest
     outputs:
-      build-matrix: ${{ steps.set-matrix.outputs.matrix }}
+      build_8_4_fpm: ${{ steps.check.outputs.build_8_4_fpm }}
+      build_8_4_fpm_alpine: ${{ steps.check.outputs.build_8_4_fpm_alpine }}
+      build_workflow_updated: ${{ steps.check.outputs.build_workflow_updated }}
     steps:
-      - name: Checkout repository
-        uses: actions/checkout@v4
+      - uses: actions/checkout@v4
         with:
           fetch-depth: 0
-
-      - name: Set up build matrix
-        id: set-matrix
+          
+      - name: Check file changes
+        id: check
         run: |
-          # Default empty matrix with valid structure
-          DEFAULT_MATRIX='{"include":[]}'
+          CHANGED=$(git diff --name-only ${{ github.event.before }} ${{ github.sha }} || git diff --name-only HEAD~1 HEAD)
           
-          # Manual workflow dispatch with specific selection
-          if [[ "${{ github.event_name }}" == "workflow_dispatch" ]]; then
-            if [[ "${{ github.event.inputs.variant }}" == "all" ]]; then
-              echo "matrix={\"include\":[{\"variant\":\"8.4-fpm\"},{\"variant\":\"8.4-fpm-alpine\"}]}" >> $GITHUB_OUTPUT
-              exit 0
-            else
-              echo "matrix={\"include\":[{\"variant\":\"${{ github.event.inputs.variant }}\"}]}" >> $GITHUB_OUTPUT
-              exit 0
-            fi
-          fi
-          
-          # Auto-trigger from push
-          CHANGED_FILES=""
-          if [[ -n "${{ github.event.before }}" && -n "${{ github.sha }}" ]]; then
-            CHANGED_FILES=$(git diff --name-only ${{ github.event.before }} ${{ github.sha }})
+          if echo "$CHANGED" | grep -q "8.4-fpm/Dockerfile"; then
+            echo "build_8_4_fpm=true" >> $GITHUB_OUTPUT
           else
-            # Fallback if we can't get the exact commit range
-            CHANGED_FILES=$(git diff --name-only HEAD~1 HEAD)
+            echo "build_8_4_fpm=false" >> $GITHUB_OUTPUT
           fi
           
-          # Check if workflow file was changed
-          WORKFLOW_CHANGED=false
-          if echo "$CHANGED_FILES" | grep -q ".github/workflows/docker-build.yml"; then
-            WORKFLOW_CHANGED=true
-          fi
-          
-          # Process changed Dockerfiles
-          MATRIX_ITEMS=""
-          
-          # Check for 8.4-fpm changes
-          if echo "$CHANGED_FILES" | grep -q "8.4-fpm/Dockerfile"; then
-            MATRIX_ITEMS="{\"variant\":\"8.4-fpm\"}"
-          fi
-          
-          # Check for 8.4-fpm-alpine changes
-          if echo "$CHANGED_FILES" | grep -q "8.4-fpm-alpine/Dockerfile"; then
-            if [[ -n "$MATRIX_ITEMS" ]]; then
-              MATRIX_ITEMS="$MATRIX_ITEMS,{\"variant\":\"8.4-fpm-alpine\"}"
-            else
-              MATRIX_ITEMS="{\"variant\":\"8.4-fpm-alpine\"}"
-            fi
-          fi
-          
-          # If workflow changed but no Dockerfiles changed, build all
-          if [[ "$WORKFLOW_CHANGED" == "true" && -z "$MATRIX_ITEMS" ]]; then
-            echo "matrix={\"include\":[{\"variant\":\"8.4-fpm\"},{\"variant\":\"8.4-fpm-alpine\"}]}" >> $GITHUB_OUTPUT
-            exit 0
-          fi
-          
-          # If we have matrix items, create proper matrix
-          if [[ -n "$MATRIX_ITEMS" ]]; then
-            echo "matrix={\"include\":[$MATRIX_ITEMS]}" >> $GITHUB_OUTPUT
+          if echo "$CHANGED" | grep -q "8.4-fpm-alpine/Dockerfile"; then
+            echo "build_8_4_fpm_alpine=true" >> $GITHUB_OUTPUT
           else
-            # Empty but valid matrix
-            echo "matrix=$DEFAULT_MATRIX" >> $GITHUB_OUTPUT
+            echo "build_8_4_fpm_alpine=false" >> $GITHUB_OUTPUT
           fi
-
-  build:
-    needs: setup
-    if: ${{ fromJson(needs.setup.outputs.build-matrix).include[0] != null }}
+          
+          if echo "$CHANGED" | grep -q ".github/workflows/docker-build.yml"; then
+            echo "build_workflow_updated=true" >> $GITHUB_OUTPUT
+          else
+            echo "build_workflow_updated=false" >> $GITHUB_OUTPUT
+          fi
+  
+  build-8_4-fpm:
+    needs: check_changes
+    if: ${{ needs.check_changes.outputs.build_8_4_fpm == 'true' || (needs.check_changes.outputs.build_workflow_updated == 'true' && github.event_name != 'workflow_dispatch') || github.event_name == 'workflow_dispatch' }}
     runs-on: ubuntu-latest
-    strategy:
-      matrix: ${{ fromJson(needs.setup.outputs.build-matrix) }}
-      fail-fast: false
     steps:
-      - name: Checkout code
-        uses: actions/checkout@v4
-
+      - uses: actions/checkout@v4
+      
       - name: Get version tag
         id: version
         run: |
-          # Get the current date
           DATE=$(date +'%Y.%m.%d')
-          # Get the short commit hash
           COMMIT_SHORT=$(git rev-parse --short HEAD)
           echo "tag=${DATE}-${COMMIT_SHORT}" >> $GITHUB_OUTPUT
           echo "date=${DATE}" >> $GITHUB_OUTPUT
-
-      - name: Set up Docker Buildx
-        uses: docker/setup-buildx-action@v3
-
-      - name: Login to DockerHub
-        uses: docker/login-action@v3
+      
+      - uses: docker/login-action@v3
         with:
           username: ${{ secrets.DOCKER_USERNAME }}
           password: ${{ secrets.DOCKER_PASSWORD }}
-
+          
       - name: Build and push
         uses: docker/build-push-action@v5
         with:
           context: .
-          file: ${{ matrix.variant }}/Dockerfile
+          file: 8.4-fpm/Dockerfile
           push: true
           build-args: |
             USER_ID=1000
             GROUP_ID=1000
           tags: |
-            dommin/php-${{ matrix.variant }}:latest
-            dommin/php-${{ matrix.variant }}:${{ steps.version.outputs.date }}
-            dommin/php-${{ matrix.variant }}:${{ steps.version.outputs.tag }}
-          labels: |
-            org.opencontainers.image.source=${{ github.repositoryUrl }}
-          cache-from: type=gha
-          cache-to: type=gha,mode=max
-          cache-to: type=gha,mode=max
+            dommin/php-8.4-fpm:latest
+            dommin/php-8.4-fpm:${{ steps.version.outputs.date }}
+            dommin/php-8.4-fpm:${{ steps.version.outputs.tag }}
+  
+  build-8_4-fpm-alpine:
+    needs: check_changes
+    if: ${{ needs.check_changes.outputs.build_8_4_fpm_alpine == 'true' || (needs.check_changes.outputs.build_workflow_updated == 'true' && github.event_name != 'workflow_dispatch') || github.event_name == 'workflow_dispatch' }}
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      
+      - name: Get version tag
+        id: version
+        run: |
+          DATE=$(date +'%Y.%m.%d')
+          COMMIT_SHORT=$(git rev-parse --short HEAD)
+          echo "tag=${DATE}-${COMMIT_SHORT}" >> $GITHUB_OUTPUT
+          echo "date=${DATE}" >> $GITHUB_OUTPUT
+      
+      - uses: docker/login-action@v3
+        with:
+          username: ${{ secrets.DOCKER_USERNAME }}
+          password: ${{ secrets.DOCKER_PASSWORD }}
+          
+      - name: Build and push
+        uses: docker/build-push-action@v5
+        with:
+          context: .
+          file: 8.4-fpm-alpine/Dockerfile
+          push: true
+          build-args: |
+            USER_ID=1000
+            GROUP_ID=1000
+          tags: |
+            dommin/php-8.4-fpm-alpine:latest
+            dommin/php-8.4-fpm-alpine:${{ steps.version.outputs.date }}
+            dommin/php-8.4-fpm-alpine:${{ steps.version.outputs.tag }}
