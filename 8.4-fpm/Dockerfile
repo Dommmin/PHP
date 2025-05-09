@@ -10,6 +10,7 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
     imagemagick libmagick++-dev \
     libpq-dev \
     supervisor \
+    autoconf g++ make \
     && apt-get clean && rm -rf /var/lib/apt/lists/* /tmp/* /var/tmp/*
 
 RUN curl -fsSL https://deb.nodesource.com/setup_22.x | bash - \
@@ -17,8 +18,8 @@ RUN curl -fsSL https://deb.nodesource.com/setup_22.x | bash - \
     && npm install -g npm@latest \
     && apt-get clean && rm -rf /var/lib/apt/lists/* /tmp/* /var/tmp/*
 
-RUN pecl install redis imagick \
-    && docker-php-ext-enable redis imagick \
+RUN pecl install redis imagick xdebug \
+    && docker-php-ext-enable redis imagick xdebug \
     && docker-php-ext-configure gd --with-freetype --with-jpeg --with-webp \
     && docker-php-ext-install -j$(nproc) \
        pdo_mysql pdo_pgsql mysqli \
