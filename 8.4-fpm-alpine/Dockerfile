@@ -1,38 +1,31 @@
 FROM php:8.4-fpm-alpine
 
 RUN apk add --no-cache \
-    git curl unzip \
-    libpng-dev jpeg-dev libwebp-dev freetype-dev \
-    oniguruma-dev libxml2-dev libzip-dev \
-    imagemagick-dev \
-    postgresql-dev \
-    nodejs npm \
-    $PHPIZE_DEPS
+    git bash curl libpng-dev libxml2-dev zip unzip \
+    freetype-dev libjpeg-turbo-dev libwebp-dev zlib-dev libzip-dev oniguruma-dev \
+    postgresql-dev supervisor autoconf g++ make \
+    chromium chromium-chromedriver harfbuzz nss freetype ttf-freefont \
+    nodejs npm
 
-RUN pecl install redis imagick \
-    && docker-php-ext-enable redis imagick \
-    && docker-php-ext-configure gd --with-freetype --with-jpeg --with-webp \
-    && docker-php-ext-install -j$(nproc) \
-       pdo_mysql pdo_pgsql mysqli \
-       zip bcmath pcntl intl \
-       gd opcache
+ENV CHROME_BIN=/usr/bin/chromium-browser \
+    CHROME_PATH=/usr/lib/chromium/ \
+    PUPPETEER_SKIP_CHROMIUM_DOWNLOAD=true \
+    PUPPETEER_EXECUTABLE_PATH=/usr/bin/chromium-browser
 
-RUN apk add --no-cache \
-    libpng libjpeg libwebp freetype \
-    oniguruma libxml2 libzip \
-    imagemagick \
-    postgresql-libs \
-    supervisor \
-    bash
+RUN npm install -g puppeteer
+
+RUN docker-php-ext-configure gd --with-freetype --with-jpeg --with-webp \
+ && docker-php-ext-install pdo_mysql mbstring exif pcntl bcmath gd zip \
+ && pecl install redis && docker-php-ext-enable redis
+
+RUN addgroup -g 1000 appuser && \
+    adduser -D -u 1000 -G appuser appuser
+
+RUN sed -i 's/user = www-data/user = appuser/g' /usr/local/etc/php-fpm.d/www.conf && \
+    sed -i 's/group = www-data/group = appuser/g' /usr/local/etc/php-fpm.d/www.conf
 
 COPY --from=composer:latest /usr/bin/composer /usr/bin/composer
 
-RUN rm -rf /tmp/* /var/cache/apk/*
-
 WORKDIR /var/www
 
-USER www-data
-
-EXPOSE 9000
-
-CMD ["php-fpm"]
+USER appuser
