@@ -18,12 +18,6 @@ RUN docker-php-ext-configure gd --with-freetype --with-jpeg --with-webp \
  && docker-php-ext-install pdo_mysql mbstring exif pcntl bcmath gd zip \
  && pecl install redis && docker-php-ext-enable redis
 
-RUN addgroup -g 1000 appuser && \
-    adduser -D -u 1000 -G appuser appuser
-
-RUN sed -i 's/user = www-data/user = appuser/g' /usr/local/etc/php-fpm.d/www.conf && \
-    sed -i 's/group = www-data/group = appuser/g' /usr/local/etc/php-fpm.d/www.conf
-
 COPY --from=composer:latest /usr/bin/composer /usr/bin/composer
 
 WORKDIR /var/www
