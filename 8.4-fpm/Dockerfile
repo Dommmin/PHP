@@ -9,29 +9,31 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
     libonig-dev libxml2-dev libzip-dev \
     imagemagick libmagick++-dev \
     libpq-dev \
-    supervisor \
     autoconf g++ make \
-    && apt-get clean && rm -rf /var/lib/apt/lists/* /tmp/* /var/tmp/*
-
-RUN curl -fsSL https://deb.nodesource.com/setup_22.x | bash - \
+    supervisor \
+    wget gnupg2 \
+    && curl -fsSL https://deb.nodesource.com/setup_22.x | bash - \
     && apt-get install -y nodejs \
     && npm install -g npm@latest \
-    && apt-get clean && rm -rf /var/lib/apt/lists/* /tmp/* /var/tmp/*
-
-RUN pecl install redis imagick xdebug \
+    && pecl install redis imagick xdebug \
     && docker-php-ext-enable redis imagick xdebug \
     && docker-php-ext-configure gd --with-freetype --with-jpeg --with-webp \
     && docker-php-ext-install -j$(nproc) \
-       pdo_mysql pdo_pgsql mysqli \
-       zip bcmath pcntl intl \
-       gd opcache
-
-COPY --from=composer:latest /usr/bin/composer /usr/bin/composer
+        pdo_mysql pdo_pgsql mysqli \
+        zip bcmath pcntl intl \
+        gd opcache \
+    && wget -q -O - https://dl-ssl.google.com/linux/linux_signing_key.pub | apt-key add - \
+    && echo "deb [arch=amd64] http://dl.google.com/linux/chrome/deb/ stable main" > /etc/apt/sources.list.d/google-chrome.list \
+    && apt-get update \
+    && apt-get install -y google-chrome-stable \
+    && apt-get clean && rm -rf /var/lib/apt/lists/* /tmp/* /var/tmp/*
 
 RUN groupmod -g ${GROUP_ID} www-data \
     && usermod -u ${USER_ID} -g www-data www-data \
-    && mkdir -p /var/www \
-    && chown -R www-data:www-data /var/www
+    && mkdir -p /var/www /var/log/supervisor /var/run/supervisor \
+    && chown -R www-data:www-data /var/www /var/log/supervisor /var/run/supervisor
+
+COPY --from=composer:latest /usr/bin/composer /usr/bin/composer
 
 WORKDIR /var/www
 
