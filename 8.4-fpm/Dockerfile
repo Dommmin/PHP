@@ -1,8 +1,5 @@
 FROM php:8.4-fpm
 
-ARG USER_ID=1000
-ARG GROUP_ID=1000
-
 RUN apt-get update && apt-get install -y --no-install-recommends \
     git curl unzip zip \
     libpng-dev libjpeg-dev libwebp-dev libfreetype6-dev \
@@ -27,11 +24,6 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
     && apt-get update \
     && apt-get install -y google-chrome-stable \
     && apt-get clean && rm -rf /var/lib/apt/lists/* /tmp/* /var/tmp/*
-
-RUN groupmod -g ${GROUP_ID} www-data \
-    && usermod -u ${USER_ID} -g www-data www-data \
-    && mkdir -p /var/www /var/log/supervisor /var/run/supervisor \
-    && chown -R www-data:www-data /var/www /var/log/supervisor /var/run/supervisor
 
 COPY --from=composer:latest /usr/bin/composer /usr/bin/composer
 
