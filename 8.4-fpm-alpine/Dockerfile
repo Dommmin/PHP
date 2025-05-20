@@ -5,7 +5,7 @@ RUN apk add --no-cache \
     freetype-dev libjpeg-turbo-dev libwebp-dev zlib-dev libzip-dev oniguruma-dev \
     postgresql-dev supervisor autoconf g++ make \
     chromium chromium-chromedriver harfbuzz nss freetype ttf-freefont \
-    nodejs npm
+    nodejs npm apache2-utils
 
 ENV CHROME_BIN=/usr/bin/chromium-browser \
     CHROME_PATH=/usr/lib/chromium/ \
