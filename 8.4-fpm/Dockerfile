@@ -11,12 +11,13 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
     libpq-dev \
     autoconf g++ make \
     supervisor \
+    openssh-client \
     wget gnupg2 \
     && curl -fsSL https://deb.nodesource.com/setup_22.x | bash - \
     && apt-get install -y nodejs \
     && npm install -g npm@latest \
-    && pecl install redis imagick xdebug swoole \
-    && docker-php-ext-enable redis imagick xdebug swoole \
+    && pecl install redis imagick xdebug \
+    && docker-php-ext-enable redis imagick xdebug \
     && docker-php-ext-configure gd --with-freetype --with-jpeg --with-webp \
     && docker-php-ext-install -j$(nproc) \
         pdo_mysql pdo_pgsql mysqli \
