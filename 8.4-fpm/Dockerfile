@@ -1,8 +1,5 @@
 FROM php:8.4-fpm
 
-ARG USER_ID=1000
-ARG GROUP_ID=1000
-
 RUN apt-get update && apt-get install -y --no-install-recommends \
     git curl unzip zip \
     libpng-dev libjpeg-dev libwebp-dev libfreetype6-dev \
@@ -12,7 +9,7 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
     autoconf g++ make \
     supervisor \
     rsync \
-    wget gnupg2 \
+    wget gnupg2 ca-certificates \
     ffmpeg \
     jpegoptim optipng pngquant gifsicle \
     file \
@@ -26,20 +23,18 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
         pdo_mysql pdo_pgsql mysqli \
         zip bcmath pcntl intl \
         gd opcache exif \
-    && wget -q -O - https://dl-ssl.google.com/linux/linux_signing_key.pub | apt-key add - \
-    && echo "deb [arch=amd64] http://dl.google.com/linux/chrome/deb/ stable main" > /etc/apt/sources.list.d/google-chrome.list \
+    && mkdir -p /etc/apt/keyrings \
+    && wget -q -O /etc/apt/keyrings/google-linux.gpg https://dl.google.com/linux/linux_signing_key.pub \
+    && echo "deb [arch=amd64 signed-by=/etc/apt/keyrings/google-linux.gpg] http://dl.google.com/linux/chrome/deb/ stable main" \
+        > /etc/apt/sources.list.d/google-chrome.list \
     && apt-get update \
     && apt-get install -y google-chrome-stable \
-    && apt-get clean && rm -rf /var/lib/apt/lists/* /tmp/* /var/tmp/*
-
-RUN groupmod -g ${GROUP_ID} www-data \
-    && usermod -u ${USER_ID} -g www-data www-data \
-    && mkdir -p /var/www /var/log/supervisor /var/run/supervisor \
-    && chown -R www-data:www-data /var/www /var/log/supervisor /var/run/supervisor
+    && apt-get clean \
+    && rm -rf /var/lib/apt/lists/* /tmp/* /var/tmp/*
 
 COPY --from=composer:latest /usr/bin/composer /usr/bin/composer
 
-WORKDIR /var/www
+WORKDIR /var/www/html
 
 EXPOSE 9000
 
