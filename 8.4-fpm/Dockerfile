@@ -11,9 +11,12 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
     libpq-dev \
     autoconf g++ make \
     supervisor \
-    rsync  \
+    rsync \
     wget gnupg2 \
-    && curl -fsSL https://deb.nodesource.com/setup_22.x | bash - \
+    ffmpeg \
+    jpegoptim optipng pngquant gifsicle \
+    file \
+    && curl -fsSL https://deb.nodesource.com/setup_24.x | bash - \
     && apt-get install -y nodejs \
     && npm install -g npm@latest \
     && pecl install redis imagick xdebug \
@@ -22,7 +25,7 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
     && docker-php-ext-install -j$(nproc) \
         pdo_mysql pdo_pgsql mysqli \
         zip bcmath pcntl intl \
-        gd opcache \
+        gd opcache exif \
     && wget -q -O - https://dl-ssl.google.com/linux/linux_signing_key.pub | apt-key add - \
     && echo "deb [arch=amd64] http://dl.google.com/linux/chrome/deb/ stable main" > /etc/apt/sources.list.d/google-chrome.list \
     && apt-get update \
