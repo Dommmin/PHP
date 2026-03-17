@@ -19,7 +19,7 @@ jobs:
       build_8_4_fpm_alpine: ${{ steps.check.outputs.build_8_4_fpm_alpine }}
       build_workflow_updated: ${{ steps.check.outputs.build_workflow_updated }}
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v6
         with:
           fetch-depth: 0
           
@@ -57,7 +57,7 @@ jobs:
     if: ${{ needs.check_changes.outputs.build_8_4_fpm == 'true' || (needs.check_changes.outputs.build_workflow_updated == 'true' && github.event_name != 'workflow_dispatch') || github.event_name == 'workflow_dispatch' }}
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v6
       
       - name: Get version tag
         id: version
@@ -85,14 +85,13 @@ jobs:
             dommin/php-8.4-fpm:latest
             dommin/php-8.4-fpm:${{ steps.version.outputs.date }}
             dommin/php-8.4-fpm:${{ steps.version.outputs.tag }}
-  
+
   build-8_4-fpm-alpine:
     needs: check_changes
     if: ${{ needs.check_changes.outputs.build_8_4_fpm_alpine == 'true' || (needs.check_changes.outputs.build_workflow_updated == 'true' && github.event_name != 'workflow_dispatch') || github.event_name == 'workflow_dispatch' }}
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
-      
+      - uses: actions/checkout@v6
       - name: Get version tag
         id: version
         run: |
@@ -100,12 +99,12 @@ jobs:
           COMMIT_SHORT=$(git rev-parse --short HEAD)
           echo "tag=${DATE}-${COMMIT_SHORT}" >> $GITHUB_OUTPUT
           echo "date=${DATE}" >> $GITHUB_OUTPUT
-      
+
       - uses: docker/login-action@v3
         with:
           username: ${{ secrets.DOCKER_USERNAME }}
           password: ${{ secrets.DOCKER_PASSWORD }}
-          
+
       - name: Build and push
         uses: docker/build-push-action@v5
         with:
@@ -125,8 +124,7 @@ jobs:
     if: ${{ needs.check_changes.outputs.build_8_5_fpm == 'true' || (needs.check_changes.outputs.build_workflow_updated == 'true' && github.event_name != 'workflow_dispatch') || github.event_name == 'workflow_dispatch' }}
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
-
+      - uses: actions/checkout@v6
       - name: Get version tag
         id: version
         run: |
@@ -144,12 +142,12 @@ jobs:
         uses: docker/build-push-action@v5
         with:
           context: .
-          file: 8.5-fpm-alpine/Dockerfile
+          file: 8.5-fpm/Dockerfile
           push: true
           build-args: |
             USER_ID=1000
             GROUP_ID=1000
           tags: |
-            dommin/php-8.5-fpm-alpine:latest
-            dommin/php-8.5-fpm-alpine:${{ steps.version.outputs.date }}
-            dommin/php-8.5-fpm-alpine:${{ steps.version.outputs.tag }}
+            dommin/php-8.5-fpm:latest
+            dommin/php-8.5-fpm:${{ steps.version.outputs.date }}
+            dommin/php-8.5-fpm:${{ steps.version.outputs.tag }}
