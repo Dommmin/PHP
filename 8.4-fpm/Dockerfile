@@ -11,9 +11,9 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
     rsync \
     wget gnupg2 ca-certificates \
     ffmpeg \
-    jpegoptim optipng pngquant gifsicle \
+    jpegoptim optipng pngquant gifsicle webp \
     file \
-    && curl -fsSL https://deb.nodesource.com/setup_22.x | bash - \
+    && curl -fsSL https://deb.nodesource.com/setup_24.x | bash - \
     && apt-get install -y nodejs \
     && npm install -g npm@latest \
     && pecl install redis imagick xdebug \
