@@ -41,7 +41,6 @@ RUN docker-php-ext-configure gd \
         bcmath \
         pcntl \
         intl \
-        opcache \
         exif
 
 # --- Supervisor config folder ---
