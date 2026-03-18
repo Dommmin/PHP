@@ -1,5 +1,6 @@
 FROM php:8.5-fpm
 
+# install system deps + dev tools
 RUN apt-get update && apt-get install -y --no-install-recommends \
     git curl unzip zip \
     nano less htop procps iputils-ping bash-completion \
@@ -15,33 +16,27 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
     pkg-config \
     ffmpeg \
     jpegoptim optipng pngquant gifsicle webp \
-    file \
+    ripgrep fd-find bat zoxide \
     autoconf g++ make \
-    ca-certificates gnupg \
-    wget \
-    ripgrep \
-    fd-find \
-    bat \
-    zoxide \
+    ca-certificates gnupg wget \
     && rm -rf /var/lib/apt/lists/*
 
-# Node 24
+# install Node 24
 RUN curl -fsSL https://deb.nodesource.com/setup_24.x | bash - \
     && apt-get update \
     && apt-get install -y nodejs
 
-# PECL extensions
+# PHP extensions
 RUN pecl install redis imagick xdebug \
-    && docker-php-ext-enable redis imagick xdebug
-
-# PHP extensions (instalowane osobno dla stabilności)
-RUN docker-php-ext-install pdo_mysql
-RUN docker-php-ext-install pdo_pgsql
-RUN docker-php-ext-install zip
-RUN docker-php-ext-install bcmath
-RUN docker-php-ext-install pcntl
-RUN docker-php-ext-install intl
-RUN docker-php-ext-install exif
+    && docker-php-ext-enable redis imagick xdebug opcache \
+    && docker-php-ext-install \
+        pdo_mysql \
+        pdo_pgsql \
+        zip \
+        bcmath \
+        pcntl \
+        intl \
+        exif
 
 # Composer
 COPY --from=composer:latest /usr/bin/composer /usr/bin/composer
