@@ -23,7 +23,6 @@ jobs:
       - id: changed
         run: |
           CHANGED=$(git diff --name-only ${{ github.event.before }} ${{ github.sha }} || git diff --name-only HEAD~1 HEAD)
-
           echo "files<<EOF" >> $GITHUB_OUTPUT
           echo "$CHANGED" >> $GITHUB_OUTPUT
           echo "EOF" >> $GITHUB_OUTPUT
@@ -31,7 +30,6 @@ jobs:
   build:
     needs: check_changes
     runs-on: ubuntu-latest
-
     strategy:
       fail-fast: false
       matrix:
@@ -53,12 +51,8 @@ jobs:
         run: |
           DATE=$(date +'%Y.%m.%d')
           COMMIT_SHORT=$(git rev-parse --short HEAD)
-
           echo "date=$DATE" >> $GITHUB_OUTPUT
           echo "tag=${DATE}-${COMMIT_SHORT}" >> $GITHUB_OUTPUT
-
-      - name: Setup QEMU
-        uses: docker/setup-qemu-action@v4
 
       - name: Setup Docker Buildx
         uses: docker/setup-buildx-action@v3
@@ -79,17 +73,13 @@ jobs:
           context: .
           file: ${{ matrix.dockerfile }}
           push: true
-
-          platforms: linux/amd64,linux/arm64
-
+          platforms: linux/amd64
           build-args: |
             USER_ID=1000
             GROUP_ID=1000
-
           tags: |
             ${{ matrix.image }}:latest
             ${{ matrix.image }}:${{ steps.version.outputs.date }}
             ${{ matrix.image }}:${{ steps.version.outputs.tag }}
-
           cache-from: type=gha
           cache-to: type=gha,mode=max
