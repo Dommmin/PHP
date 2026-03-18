@@ -42,7 +42,6 @@ RUN docker-php-ext-install bcmath
 RUN docker-php-ext-install pcntl
 RUN docker-php-ext-install intl
 RUN docker-php-ext-install exif
-RUN docker-php-ext-install opcache
 
 # Composer
 COPY --from=composer:latest /usr/bin/composer /usr/bin/composer
