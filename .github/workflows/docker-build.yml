@@ -11,6 +11,8 @@ on:
       - '.github/workflows/docker-build.yml'
   workflow_dispatch:
 
+env:
+  FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: 'true'
 jobs:
   check_changes:
     runs-on: ubuntu-latest
@@ -85,9 +87,6 @@ jobs:
           file: ${{ matrix.dockerfile }}
           push: true
           platforms: ${{ matrix.platforms }}
-          build-args: |
-            USER_ID=1000
-            GROUP_ID=1000
           tags: |
             ${{ matrix.image }}:latest
             ${{ matrix.image }}:${{ steps.version.outputs.date }}
