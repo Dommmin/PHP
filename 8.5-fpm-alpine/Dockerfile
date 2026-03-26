@@ -10,7 +10,8 @@ RUN install-php-extensions \
 
 RUN apk add --no-cache \
     bash curl supervisor \
-    jpegoptim optipng pngquant gifsicle
+    jpegoptim optipng pngquant gifsicle \
+    nodejs npm
 
 COPY --from=composer:latest /usr/bin/composer /usr/bin/composer
 
