@@ -7,6 +7,7 @@ on:
       - '8.4-fpm/Dockerfile'
       - '8.5-fpm/Dockerfile'
       - '8.4-fpm-alpine/Dockerfile'
+      - '8.5-fpm-alpine/Dockerfile'
       - '.github/workflows/docker-build.yml'
   workflow_dispatch:
 
@@ -42,6 +43,9 @@ jobs:
 
           - dockerfile: 8.5-fpm/Dockerfile
             image: dommin/php-8.5-fpm
+
+          - dockerfile: 8.5-fpm-alpine/Dockerfile
+            image: dommin/php-8.5-fpm-alpine
 
     steps:
       - uses: actions/checkout@v6
