@@ -5,8 +5,9 @@ COPY --from=mlocati/php-extension-installer:latest \
     /usr/bin/install-php-extensions /usr/local/bin/
 
 RUN install-php-extensions \
-    bcmath exif gd intl mbstring opcache pcntl \
-    pdo_mysql pdo_pgsql pgsql sockets zip redis
+    bcmath exif gd imagick intl mbstring opcache pcntl \
+    pdo_mysql pdo_pgsql pgsql sockets zip redis \
+    gmp soap xml simplexml
 
 RUN apk add --no-cache \
     bash curl supervisor \
