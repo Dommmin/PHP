@@ -8,6 +8,8 @@ on:
       - '8.5-fpm/Dockerfile'
       - '8.4-fpm-alpine/Dockerfile'
       - '8.5-fpm-alpine/Dockerfile'
+      - '8.5-frankenphp/Dockerfile'
+      - '8.5-frankenphp-alpine/Dockerfile'
       - '.github/workflows/docker-build.yml'
   workflow_dispatch:
 
@@ -51,6 +53,14 @@ jobs:
 
           - dockerfile: 8.5-fpm-alpine/Dockerfile
             image: dommin/php-8.5-fpm-alpine
+            platforms: linux/amd64
+
+          - dockerfile: 8.5-frankenphp/Dockerfile
+            image: dommin/php-8.5-frankenphp
+            platforms: linux/amd64,linux/arm64
+
+          - dockerfile: 8.5-frankenphp-alpine/Dockerfile
+            image: dommin/php-8.5-frankenphp-alpine
             platforms: linux/amd64
 
     steps:
